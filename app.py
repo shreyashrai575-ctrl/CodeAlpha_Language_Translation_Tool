@@ -26,6 +26,34 @@ LANGUAGES = {
 }
 
 
+def install_language_pair(source, target):
+    """Install an Argos language pair if it is not already installed."""
+
+    if source == target:
+        return True
+
+    installed_packages = argostranslate.package.get_installed_packages()
+
+    already_installed = any(
+        package.from_code == source and package.to_code == target
+        for package in installed_packages
+    )
+
+    if already_installed:
+        return True
+
+    print(f"Installing translation package: {source} -> {target}")
+
+    argostranslate.package.update_package_index()
+
+    success = argostranslate.package.install_package_for_language_pair(
+        source,
+        target
+    )
+
+    return success
+
+
 @app.route("/")
 def index():
     return render_template("index.html", languages=LANGUAGES)
@@ -40,33 +68,49 @@ def translate():
     target = data.get("target", "hi")
 
     if not text:
-        return jsonify({"error": "Please enter text first."}), 400
+        return jsonify({
+            "error": "Please enter text first."
+        }), 400
+
+    if source not in LANGUAGES.values() or target not in LANGUAGES.values():
+        return jsonify({
+            "error": "Unsupported language."
+        }), 400
 
     if source == target:
-        return jsonify({"translation": text})
+        return jsonify({
+            "translation": text
+        })
 
     try:
-        # Make sure the requested language pair is installed.
-        argostranslate.package.update_package_index()
+        # Install the required model if necessary.
+        if not install_language_pair(source, target):
+            return jsonify({
+                "error": f"Translation model unavailable for {source} → {target}."
+            }), 502
 
-        installed = argostranslate.translate.get_installed_languages()
-        source_lang = next((x for x in installed if x.code == source), None)
-        target_lang = next((x for x in installed if x.code == target), None)
+        # Perform the translation locally.
+        translated = argostranslate.translate.translate(
+            text,
+            source,
+            target
+        )
 
-        if not source_lang or not target_lang:
-            raise Exception(f"Language not installed: {source}->{target}")
-
-        translation = source_lang.get_translation(target_lang)
-        translated = translation.translate(text)
-
-        return jsonify({"translation": translated})
+        return jsonify({
+            "translation": translated
+        })
 
     except Exception as e:
         print("Translation error:", e)
+
         return jsonify({
-            "error": f"Translation unavailable: {source} → {target}"
+            "error": "Translation failed. Please try again."
         }), 502
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(
+        host="0.0.0.0",
+        port=5000,
+        debug=False
+    )
