@@ -1,27 +1,27 @@
 from flask import Flask, render_template, request, jsonify
-from deep_translator import MyMemoryTranslator
+import requests
 
 app = Flask(__name__)
 
 LANGUAGES = {
-    "English": "english",
-    "Hindi": "hindi",
-    "French": "french",
-    "Spanish": "spanish",
-    "German": "german",
-    "Italian": "italian",
-    "Portuguese": "portuguese",
-    "Japanese": "japanese",
-    "Korean": "korean",
-    "Chinese": "chinese simplified",
-    "Arabic": "arabic",
-    "Russian": "russian",
-    "Bengali": "bengali",
-    "Tamil": "tamil india",
-    "Telugu": "telugu",
-    "Marathi": "marathi",
-    "Gujarati": "gujarati",
-    "Punjabi": "punjabi",
+    "English": "en",
+    "Hindi": "hi",
+    "French": "fr",
+    "Spanish": "es",
+    "German": "de",
+    "Italian": "it",
+    "Portuguese": "pt",
+    "Japanese": "ja",
+    "Korean": "ko",
+    "Chinese": "zh-CN",
+    "Arabic": "ar",
+    "Russian": "ru",
+    "Bengali": "bn",
+    "Tamil": "ta",
+    "Telugu": "te",
+    "Marathi": "mr",
+    "Gujarati": "gu",
+    "Punjabi": "pa"
 }
 
 
@@ -35,26 +35,33 @@ def translate():
     data = request.get_json(silent=True) or {}
 
     text = (data.get("text") or "").strip()
-    source = data.get("source", "english")
-    target = data.get("target", "hindi")
+    source = data.get("source", "en")
+    target = data.get("target", "hi")
 
     if not text:
         return jsonify({"error": "Please enter some text."}), 400
 
-    if target not in LANGUAGES.values():
-        return jsonify({"error": "Unsupported target language."}), 400
-
     try:
-        translator = MyMemoryTranslator(
-            source=source,
-            target=target
+        url = "https://api.mymemory.translated.net/get"
+
+        response = requests.get(
+            url,
+            params={
+                "q": text,
+                "langpair": f"{source}|{target}"
+            },
+            timeout=15
         )
 
-        translated = translator.translate(text)
+        response.raise_for_status()
+        result = response.json()
 
-        return jsonify({
-            "translation": translated
-        })
+        translated = result.get("responseData", {}).get("translatedText")
+
+        if not translated:
+            raise Exception("No translation returned")
+
+        return jsonify({"translation": translated})
 
     except Exception as e:
         print("Translation error:", e)
@@ -65,4 +72,4 @@ def translate():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
