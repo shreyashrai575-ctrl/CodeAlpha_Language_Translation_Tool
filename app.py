@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify
-import requests
+import argostranslate.package
+import argostranslate.translate
 
 app = Flask(__name__)
 
@@ -13,7 +14,7 @@ LANGUAGES = {
     "Portuguese": "pt",
     "Japanese": "ja",
     "Korean": "ko",
-    "Chinese": "zh-CN",
+    "Chinese": "zh",
     "Arabic": "ar",
     "Russian": "ru",
     "Bengali": "bn",
@@ -39,37 +40,33 @@ def translate():
     target = data.get("target", "hi")
 
     if not text:
-        return jsonify({"error": "Please enter some text."}), 400
+        return jsonify({"error": "Please enter text first."}), 400
+
+    if source == target:
+        return jsonify({"translation": text})
 
     try:
-        url = "https://api.mymemory.translated.net/get"
+        # Make sure the requested language pair is installed.
+        argostranslate.package.update_package_index()
 
-        response = requests.get(
-            url,
-            params={
-                "q": text,
-                "langpair": f"{source}|{target}"
-            },
-            timeout=15
-        )
+        installed = argostranslate.translate.get_installed_languages()
+        source_lang = next((x for x in installed if x.code == source), None)
+        target_lang = next((x for x in installed if x.code == target), None)
 
-        response.raise_for_status()
-        result = response.json()
+        if not source_lang or not target_lang:
+            raise Exception(f"Language not installed: {source}->{target}")
 
-        translated = result.get("responseData", {}).get("translatedText")
-
-        if not translated:
-            raise Exception("No translation returned")
+        translation = source_lang.get_translation(target_lang)
+        translated = translation.translate(text)
 
         return jsonify({"translation": translated})
 
     except Exception as e:
         print("Translation error:", e)
-
         return jsonify({
-            "error": "Translation failed. Please try again."
+            "error": f"Translation unavailable: {source} → {target}"
         }), 502
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000)
