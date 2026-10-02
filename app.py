@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify
-import requests
+import argostranslate.package
+import argostranslate.translate
 
 app = Flask(__name__)
 
@@ -13,7 +14,7 @@ LANGUAGES = {
     "Portuguese": "pt",
     "Japanese": "ja",
     "Korean": "ko",
-    "Chinese": "zh-CN",
+    "Chinese": "zh",
     "Arabic": "ar",
     "Russian": "ru",
     "Bengali": "bn",
@@ -39,27 +40,17 @@ def translate():
     target = data.get("target", "hi")
 
     if not text:
-        return jsonify({"error": "Please enter some text."}), 400
+        return jsonify({"error": "Please enter text first."}), 400
+
+    if source == target:
+        return jsonify({"translation": text})
 
     try:
-        url = "https://api.mymemory.translated.net/get"
-
-        response = requests.get(
-            url,
-            params={
-                "q": text,
-                "langpair": f"{source}|{target}"
-            },
-            timeout=15
+        translated = argostranslate.translate.translate(
+            text,
+            source,
+            target
         )
-
-        response.raise_for_status()
-        result = response.json()
-
-        translated = result.get("responseData", {}).get("translatedText")
-
-        if not translated:
-            raise Exception("No translation returned")
 
         return jsonify({"translation": translated})
 
@@ -67,7 +58,7 @@ def translate():
         print("Translation error:", e)
 
         return jsonify({
-            "error": "Translation failed. Please try again."
+            "error": "Translation language package is not installed yet."
         }), 502
 
 
