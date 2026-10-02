@@ -10,7 +10,8 @@ LANGUAGES = {
     "Spanish": "es"
 }
 
-TRANSLATION_API = "https://translate.argosopentech.com/translate"
+# Free public LibreTranslate mirror
+TRANSLATION_API = "https://translate.flossboxin.org.in/translate"
 
 
 @app.route("/")
@@ -49,13 +50,20 @@ def translate():
     try:
         response = requests.post(
             TRANSLATION_API,
-            data={
+            json={
                 "q": text,
                 "source": source,
-                "target": target
+                "target": target,
+                "format": "text"
+            },
+            headers={
+                "Content-Type": "application/json"
             },
             timeout=30
         )
+
+        print("Translation server status:", response.status_code)
+        print("Translation server response:", response.text[:500])
 
         response.raise_for_status()
 
@@ -65,7 +73,7 @@ def translate():
 
         if not translated:
             return jsonify({
-                "error": "The translation service returned no translation."
+                "error": "Translation service returned no translation."
             }), 502
 
         return jsonify({
@@ -102,4 +110,3 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=5000,
         debug=False
-    )
