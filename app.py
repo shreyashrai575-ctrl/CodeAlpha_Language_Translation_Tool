@@ -10,8 +10,7 @@ LANGUAGES = {
     "Spanish": "es"
 }
 
-# Free public LibreTranslate mirror
-TRANSLATION_API = "https://translate.flossboxin.org.in/translate"
+TRANSLATION_API = "https://api.mymemory.translated.net/get"
 
 
 @app.route("/")
@@ -28,36 +27,23 @@ def translate():
     target = data.get("target", "hi")
 
     if not text:
-        return jsonify({
-            "error": "Please enter text first."
-        }), 400
+        return jsonify({"error": "Please enter text first."}), 400
 
     if source not in LANGUAGES.values():
-        return jsonify({
-            "error": "Unsupported source language."
-        }), 400
+        return jsonify({"error": "Unsupported source language."}), 400
 
     if target not in LANGUAGES.values():
-        return jsonify({
-            "error": "Unsupported target language."
-        }), 400
+        return jsonify({"error": "Unsupported target language."}), 400
 
     if source == target:
-        return jsonify({
-            "translation": text
-        })
+        return jsonify({"translation": text})
 
     try:
-        response = requests.post(
+        response = requests.get(
             TRANSLATION_API,
-            json={
+            params={
                 "q": text,
-                "source": source,
-                "target": target,
-                "format": "text"
-            },
-            headers={
-                "Content-Type": "application/json"
+                "langpair": f"{source}|{target}"
             },
             timeout=30
         )
@@ -69,7 +55,7 @@ def translate():
 
         result = response.json()
 
-        translated = result.get("translatedText")
+        translated = result.get("responseData", {}).get("translatedText")
 
         if not translated:
             return jsonify({
@@ -87,7 +73,6 @@ def translate():
 
     except requests.exceptions.RequestException as e:
         print("Translation request error:", repr(e))
-
         return jsonify({
             "error": "Translation service is temporarily unavailable."
         }), 502
@@ -99,7 +84,6 @@ def translate():
 
     except Exception as e:
         print("Unexpected translation error:", repr(e))
-
         return jsonify({
             "error": "Translation failed. Please try again."
         }), 500
